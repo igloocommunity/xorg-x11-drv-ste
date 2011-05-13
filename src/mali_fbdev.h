@@ -25,7 +25,10 @@
 
 #include <linux/videodev2.h>
 #include <linux/fb.h>
+#include <linux/hwmem.h>
+#include <sys/mman.h>
 #include "exa.h"
+#include <video/mcde_fb.h>
 
 #define DPMSModeOn	0
 #define DPMSModeStandby	1
@@ -59,6 +62,7 @@ typedef struct {
 	char deviceName[64];
 	Bool use_pageflipping;
 	Bool use_pageflipping_vsync;
+	int  hwmem_fd;
 } MaliRec, *MaliPtr;
 
 typedef struct {

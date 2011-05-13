@@ -893,6 +893,7 @@ static Bool MaliPreInit(ScrnInfoPtr pScrn, int flags)
 	fPtr->dri_render = DRI_NONE;
 	fPtr->use_pageflipping = FALSE;
 	fPtr->use_pageflipping_vsync = FALSE;
+	fPtr->hwmem_fd = 0;
 
 	/* open device */
 	if ( !MaliHWInit( pScrn, xf86FindOptionValue( fPtr->pEnt->device->options,"fbdev" ) ) ) return FALSE;
@@ -1035,6 +1036,12 @@ static Bool MaliScreenInit(int scrnIndex, ScreenPtr pScreen, int argc, char **ar
 			fPtr->dri_open = TRUE;
 		}
 		else xf86DrvMsg(scrnIndex,X_ERROR,"DRI2 initialization failed\n");
+	}
+
+	if (0 == (fPtr->hwmem_fd = open("/dev/hwmem", O_RDWR)))
+	{
+		xf86DrvMsg(scrnIndex,X_ERROR,"opening of hwmem device file failed\n");
+		return FALSE;
 	}
 
 	if (NULL == (fPtr->fbmem = MaliHWMapVidmem(pScrn))) 
@@ -1189,6 +1196,12 @@ static Bool MaliCloseScreen(int scrnIndex, ScreenPtr pScreen)
 		fPtr->dri_open = FALSE;
 		MaliDRI2CloseScreen( pScreen );
 		mali_drm_close_master( pScrn );
+	}
+
+	if ( fPtr->hwmem_fd )
+	{
+		close(fPtr->hwmem_fd);
+		fPtr->hwmem_fd = 0;
 	}
 
 	return TRUE;

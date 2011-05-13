@@ -33,9 +33,6 @@
 
 #define IGNORE( a ) ( a = a )
 
-#define FBIO_WAITFORVSYNC       _IOW('F', 0x20, __u32)
-
-
 extern XF86ModuleData dri2ModuleData;
 
 typedef struct
@@ -78,7 +75,7 @@ static DRI2Buffer2Ptr MaliDRI2CreateBuffer( DrawablePtr pDraw, unsigned int atta
 
 	if ( DRI2CanFlip( pDraw ) && fPtr->use_pageflipping && DRAWABLE_PIXMAP != pDraw->type)
 	{
-		ump_secure_id ump_id = UMP_INVALID_SECURE_ID;
+		unsigned int secure_id = -1;
 
 		if ( (fPtr->fb_lcd_var.yres*2) > fPtr->fb_lcd_var.yres_virtual )
 		{
@@ -87,18 +84,18 @@ static DRI2Buffer2Ptr MaliDRI2CreateBuffer( DrawablePtr pDraw, unsigned int atta
 			return NULL;
 		}
 
-		(void)ioctl(fPtr->fb_lcd_fd, GET_UMP_SECURE_ID, &ump_id );
+		secure_id = ioctl(fPtr->fb_lcd_fd, MCDE_GET_BUFFER_NAME_IOC, NULL);
 
-		if ( UMP_INVALID_SECURE_ID == ump_id )
+		if ( -1 == secure_id )
 		{
-			xf86DrvMsg( pScrn->scrnIndex, X_ERROR, "[%s:%d] failed to retrieve UMP memory handle for flipping\n", __FUNCTION__, __LINE__ );
+			xf86DrvMsg( pScrn->scrnIndex, X_ERROR, "[%s:%d] failed to retrieve HWMEM memory handle for flipping\n", __FUNCTION__, __LINE__ );
 
 			free( buffer );
 			free( privates );
 			return NULL;
 		}
 
-		buffer->name = ump_id;
+		buffer->name = secure_id;
 
 		if ( DRI2BufferBackLeft == attachment )
 		{
@@ -179,7 +176,7 @@ static DRI2Buffer2Ptr MaliDRI2CreateBuffer( DrawablePtr pDraw, unsigned int atta
 		privPixmap = (PrivPixmap *)exaGetPixmapDriverPrivate( pPixmap );
 		buffer->pitch = pPixmap->devKind;
 		buffer->cpp = pPixmap->drawable.bitsPerPixel / 8;
-		buffer->name = ump_secure_id_get( privPixmap->mem_info->handle );
+		buffer->name = privPixmap->mem_info->hwmem_global_name;
 	}
 
 	return buffer;
@@ -191,6 +188,7 @@ static void MaliDRI2DestroyBuffer( DrawablePtr pDraw, DRI2Buffer2Ptr buffer )
 	ScrnInfoPtr pScrn = xf86Screens[pScreen->myNum];
 	MaliPtr fPtr = MALIPTR(pScrn);
 
+	xf86DrvMsg( pScrn->scrnIndex, X_ERROR, "[%s:%d] DestroyBuffer\n", __FUNCTION__, __LINE__ );
 	if ( NULL != buffer )
 	{
 		MaliDRI2BufferPrivatePtr private = buffer->driverPrivate;

@@ -23,13 +23,8 @@
 #ifndef _MALI_EXA_H_
 #define _MALI_EXA_H_
 
-#include <ump/ump.h>
-#include <ump/ump_ref_drv.h>
 #include "xf86.h"
 #include "exa.h"
-
-/* Change this ioctl according to your specific UMP integration with LCD kernel driver */
-#define GET_UMP_SECURE_ID _IOWR('m', 310, unsigned int)
 
 struct mali_info 
 {
@@ -43,17 +38,18 @@ struct mali_info
 
 typedef struct
 {
-	ump_handle handle;
+	int hwmem_alloc;
+	int hwmem_global_name;
+	int bits_per_pixel;
 	unsigned long usize;
 } mali_mem_info;
 
 typedef struct
 {
 	Bool isFrameBuffer;
-	int refs;
-	int bits_per_pixel;
-	unsigned long addr;
+	void *addr;
 	mali_mem_info *mem_info;
+	int bits_per_pixel;
 } PrivPixmap;
 
 #endif /* _MALI_EXA_H_ */

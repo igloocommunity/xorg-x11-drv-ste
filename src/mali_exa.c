@@ -139,7 +139,14 @@ static void maliDestroyPixmap(ScreenPtr pScreen, void *driverPriv )
 	IGNORE( pScreen );
 	if ( NULL != privPixmap->mem_info )
 	{
-		ump_reference_release(privPixmap->mem_info->handle);
+		//xf86DrvMsg(mi.pScrn->scrnIndex, X_INFO, "Release hwmem handle: 0x%x\n", privPixmap->mem_info->hwmem_handle );
+		if (privPixmap->addr != NULL)
+		{
+			munmap(privPixmap->addr, privPixmap->mem_info->usize);
+		}
+		ioctl( (MALIPTR(xf86Screens[pScreen->myNum]))->hwmem_fd,
+			HWMEM_RELEASE_IOC, 
+			privPixmap->mem_info->hwmem_alloc);
 		free( privPixmap->mem_info );
 		privPixmap->mem_info = NULL;
 		free( privPixmap );
@@ -165,7 +172,8 @@ static Bool maliModifyPixmapHeader(PixmapPtr pPixmap, int width, int height, int
 
 	if (pPixData == mi.fb_virt) 
 	{
-		ump_secure_id ump_id = UMP_INVALID_SECURE_ID;
+		// initialize it to -1 since this denotes an error
+		unsigned int secure_id = -1;
 
 		privPixmap->isFrameBuffer = TRUE;
 
@@ -186,9 +194,10 @@ static Bool maliModifyPixmapHeader(PixmapPtr pPixmap, int width, int height, int
 		}
 
 		/* get the secure ID for the framebuffer */
-		(void)ioctl( fd_fbdev, GET_UMP_SECURE_ID, &ump_id );
+		secure_id = ioctl( fd_fbdev, MCDE_GET_BUFFER_NAME_IOC, NULL );
 
-		if ( UMP_INVALID_SECURE_ID == ump_id)
+		// a return of -1 for secure_id denotes an error.
+		if ( -1 == secure_id)
 		{
 			free( mem_info );
 			privPixmap->mem_info = NULL;
@@ -197,8 +206,13 @@ static Bool maliModifyPixmapHeader(PixmapPtr pPixmap, int width, int height, int
 			return FALSE;
 		}
 
-		mem_info->handle = ump_handle_create_from_secure_id( ump_id );
-		if ( UMP_INVALID_MEMORY_HANDLE == mem_info->handle )
+		mem_info->hwmem_alloc = ioctl(	MALIPTR(xf86Screens[pPixmap->drawable.pScreen->myNum])->hwmem_fd,
+						HWMEM_IMPORT_IOC,
+						secure_id);
+
+		mem_info->hwmem_global_name = secure_id;
+
+		if ( -1 == mem_info->hwmem_alloc )
 		{
 			xf86DrvMsg( mi.pScrn->scrnIndex, X_ERROR, "[%s:%d] UMP failed to create handle from secure id\n", __FUNCTION__, __LINE__);
 			free( mem_info );
@@ -233,8 +247,8 @@ static Bool maliModifyPixmapHeader(PixmapPtr pPixmap, int width, int height, int
 		return FALSE;
 	}
 
-	pPixmap->devKind = ( (pPixmap->drawable.width*pPixmap->drawable.bitsPerPixel) + 7 ) / 8;
-	pPixmap->devKind = MALI_ALIGN( pPixmap->devKind, 8 );
+	//pPixmap->devKind = ( (pPixmap->drawable.width*pPixmap->drawable.bitsPerPixel) + 7 ) / 8;
+	//pPixmap->devKind = MALI_ALIGN( pPixmap->devKind, 8 );
 
 	size = exaGetPixmapPitch(pPixmap) * pPixmap->drawable.height;
 
@@ -249,8 +263,12 @@ static Bool maliModifyPixmapHeader(PixmapPtr pPixmap, int width, int height, int
 
 	if ( mem_info && mem_info->usize != 0 )
 	{
-		ump_reference_release(mem_info->handle);
-		mem_info->handle = NULL;
+		ioctl(	MALIPTR(xf86Screens[pPixmap->drawable.pScreen->myNum])->hwmem_fd,
+			HWMEM_RELEASE_IOC,
+			mem_info->hwmem_alloc);
+
+		mem_info->hwmem_alloc = 0;
+		mem_info->hwmem_global_name = 0;
 		memset(privPixmap, 0, sizeof(*privPixmap));
 
 		TRACE_EXIT();
@@ -274,17 +292,40 @@ static Bool maliModifyPixmapHeader(PixmapPtr pPixmap, int width, int height, int
 		}
 	}
 
-	mem_info->handle = ump_ref_drv_allocate( size, UMP_REF_DRV_CONSTRAINT_PHYSICALLY_LINEAR );
-	if ( UMP_INVALID_MEMORY_HANDLE == mem_info->handle )
+	{ // Create and fill in values in struct for passing with ioctl
+		struct hwmem_alloc_request args;
+		args.size = size;
+		args.flags = HWMEM_ALLOC_CACHED;
+		args.default_access = HWMEM_ACCESS_READ | HWMEM_ACCESS_WRITE | HWMEM_ACCESS_IMPORT;
+		args.mem_type = HWMEM_MEM_CONTIGUOUS_SYS;
+		mem_info->hwmem_alloc = ioctl(	MALIPTR(xf86Screens[pPixmap->drawable.pScreen->myNum])->hwmem_fd,
+						HWMEM_ALLOC_IOC,
+						&args);
+
+		if ( 0 == mem_info->hwmem_alloc )
+		{
+			xf86DrvMsg(mi.pScrn->scrnIndex, X_ERROR, "[%s:%d] failed to allocate hwmem memory (%i bytes)\n", __FUNCTION__, __LINE__, size);
+			TRACE_EXIT();
+			return FALSE;
+		}
+
+	}
+
+	mem_info->hwmem_global_name = ioctl(  	MALIPTR(xf86Screens[pPixmap->drawable.pScreen->myNum])->hwmem_fd,
+						HWMEM_EXPORT_IOC,
+						mem_info->hwmem_alloc);
+
+	if ( 0 == mem_info->hwmem_global_name )
 	{
-		xf86DrvMsg(mi.pScrn->scrnIndex, X_ERROR, "[%s:%d] failed to allocate UMP memory (%i bytes)\n", __FUNCTION__, __LINE__, size);
-		TRACE_EXIT();
+		xf86DrvMsg(mi.pScrn->scrnIndex, X_ERROR, "[%s:%d] failed to export global hwmem name\n", __FUNCTION__, __LINE__);
+		TRACE_EXIT();		
 		return FALSE;
 	}
 
 	mem_info->usize = size;
 	privPixmap->mem_info = mem_info;
 	privPixmap->mem_info->usize = size;
+	privPixmap->addr = NULL;
 	privPixmap->bits_per_pixel = 16;
 
 	TRACE_EXIT();
@@ -333,11 +374,28 @@ static Bool maliPrepareAccess(PixmapPtr pPix, int index)
 
 
 	mem_info = privPixmap->mem_info;
-	if ( NULL != mem_info ) 
+	if ( NULL != mem_info )
 	{
-		if ( privPixmap->refs == 0 ) 
+		struct hwmem_set_domain_request args;
+		args.id = mem_info->hwmem_alloc;
+		args.domain = HWMEM_DOMAIN_CPU;
+		args.access = HWMEM_ACCESS_READ | HWMEM_ACCESS_WRITE | HWMEM_ACCESS_IMPORT;
+
+		/* using memset avoids API compatibility problems with the skip/offset field. */
+		/* skip/offset = 0; start = 0; */
+		memset(&args.region, 0, sizeof(args.region));
+		args.region.count = 1;
+		args.region.end = mem_info->usize;
+		args.region.size = mem_info->usize;
+		ioctl(	MALIPTR(xf86Screens[pPix->drawable.pScreen->myNum])->hwmem_fd,
+			HWMEM_SET_DOMAIN_IOC,
+			&args);
+
+		if (!privPixmap->addr)
 		{
-			privPixmap->addr = (unsigned long)ump_mapped_pointer_get( mem_info->handle );
+			privPixmap->addr = mmap(NULL, mem_info->usize, PROT_READ | PROT_WRITE,
+						MAP_SHARED, MALIPTR(xf86Screens[pPix->drawable.pScreen->myNum])->hwmem_fd,
+						(off_t)mem_info->hwmem_alloc);
 		}
 	}
 	else
@@ -347,7 +405,7 @@ static Bool maliPrepareAccess(PixmapPtr pPix, int index)
 		return FALSE;
 	}
 
-	pPix->devPrivate.ptr = (void *)(privPixmap->addr);
+	pPix->devPrivate.ptr = privPixmap->addr;
 	if ( NULL == pPix->devPrivate.ptr ) 
 	{
 		xf86DrvMsg(mi.pScrn->scrnIndex, X_ERROR, "[%s:%d] cpu address not set\n", __FUNCTION__, __LINE__);
@@ -355,7 +413,6 @@ static Bool maliPrepareAccess(PixmapPtr pPix, int index)
 		return FALSE;
 	}
 
-	privPixmap->refs++;
 	TRACE_EXIT();
 
 	return TRUE;
@@ -364,7 +421,6 @@ static Bool maliPrepareAccess(PixmapPtr pPix, int index)
 static void maliFinishAccess(PixmapPtr pPix, int index)
 {
 	PrivPixmap *privPixmap = (PrivPixmap *)exaGetPixmapDriverPrivate(pPix);
-	mali_mem_info *mem_info;
 
 	TRACE_ENTER();
 	IGNORE( index );
@@ -381,18 +437,7 @@ static void maliFinishAccess(PixmapPtr pPix, int index)
 		return;
 	}
 
-	mem_info = privPixmap->mem_info;
-
-	if ( !privPixmap->isFrameBuffer ) 
-	{
-		if ( privPixmap->refs == 1 )
-		{
-			if ( NULL != mem_info ) ump_mapped_pointer_release( mem_info->handle );
-		}
-	}
-
 	pPix->devPrivate.ptr = NULL;
-	privPixmap->refs--;
 
 	TRACE_EXIT();
 }
@@ -478,7 +523,7 @@ Bool maliSetupExa( ScreenPtr pScreen, ExaDriverPtr exa, int xres, int yres, unsi
 	exa->flags = EXA_OFFSCREEN_PIXMAPS | EXA_HANDLES_PIXMAPS | EXA_SUPPORTS_PREPARE_AUX;
 	exa->offScreenBase = (fPtr->fb_lcd_fix.line_length*fPtr->fb_lcd_var.yres);
 	exa->memorySize = fPtr->fb_lcd_fix.smem_len;
-	exa->pixmapOffsetAlign = 4096;
+	//exa->pixmapOffsetAlign = 4096;
 	exa->pixmapPitchAlign = 8;
 
 	fd_fbdev = fPtr->fb_lcd_fd;
@@ -507,14 +552,6 @@ Bool maliSetupExa( ScreenPtr pScreen, ExaDriverPtr exa, int xres, int yres, unsi
 
 	MALI_EXA_FUNC(PrepareAccess);
 	MALI_EXA_FUNC(FinishAccess);
-
-	if ( UMP_OK != ump_open() )
-	{
-		xf86DrvMsg(mi.pScrn->scrnIndex, X_ERROR, "[%s:%d] failed to open UMP subsystem\n", __FUNCTION__, __LINE__);
-		TRACE_EXIT();
-		return FALSE;
-	}
-
 
 	xf86DrvMsg(mi.pScrn->scrnIndex, X_INFO, "Mali EXA driver is loaded successfully\n");
 	TRACE_EXIT();
