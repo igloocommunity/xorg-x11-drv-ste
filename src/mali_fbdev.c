@@ -947,14 +947,6 @@ static Bool MaliPreInit(ScrnInfoPtr pScrn, int flags)
 	xf86ProcessOptions(pScrn->scrnIndex, fPtr->pEnt->device->options, fPtr->Options);
 
 	mali_check_dri_options( pScrn );
-
-	if ( fPtr->dri_render == DRI_NONE && FALSE == mali_drm_open_master( pScrn ) )
-	{
-		xf86DrvMsg(pScrn->scrnIndex, X_ERROR, "Failed to be master of DRM!\n");
-		return FALSE;
-	}
-
-	mali_check_dri_options( pScrn );
 	mali_check_exa_options( pScrn );
 	mali_check_misc_options( pScrn );
 
@@ -1027,6 +1019,12 @@ static Bool MaliScreenInit(int scrnIndex, ScreenPtr pScreen, int argc, char **ar
 	       pScrn->mask.red,pScrn->mask.green,pScrn->mask.blue,
 	       pScrn->offset.red,pScrn->offset.green,pScrn->offset.blue);
 #endif
+
+	if ( fPtr->dri_render == DRI_NONE && FALSE == mali_drm_open_master( pScrn ) )
+	{
+		xf86DrvMsg(pScrn->scrnIndex, X_ERROR, "Failed to be master of DRM!\n");
+		return FALSE;
+	}
 
 	if ( fPtr->dri_render == DRI_NONE ) 
 	{
