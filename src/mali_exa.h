@@ -34,6 +34,10 @@ struct mali_info
 	int fb_xres;
 	int fb_yres;
 	int fd;
+	int blt_handle;
+	int fillColor;
+	GCPtr pGC;
+	PixmapPtr pSourcePixmap;
 };
 
 typedef struct

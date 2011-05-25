@@ -188,7 +188,6 @@ static void MaliDRI2DestroyBuffer( DrawablePtr pDraw, DRI2Buffer2Ptr buffer )
 	ScrnInfoPtr pScrn = xf86Screens[pScreen->myNum];
 	MaliPtr fPtr = MALIPTR(pScrn);
 
-	xf86DrvMsg( pScrn->scrnIndex, X_ERROR, "[%s:%d] DestroyBuffer\n", __FUNCTION__, __LINE__ );
 	if ( NULL != buffer )
 	{
 		MaliDRI2BufferPrivatePtr private = buffer->driverPrivate;

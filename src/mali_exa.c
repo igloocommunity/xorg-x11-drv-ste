@@ -20,6 +20,16 @@
  * THE SOFTWARE.
  */
 
+/*
+ * Copyright (C) ST-Ericsson SA 2011
+ *
+ * Hardware blitting functionality which uses libblt_hw added and
+ * ump has been replaced by hwmem for buffer handling.
+ *
+ * Author: John Frediksson, <john.xj.fredriksson@stericsson.com> for
+ * ST-Ericsson.
+ */ 
+
 #include <stdio.h>
 #include <stdlib.h>
 #include <sys/ioctl.h>
@@ -28,6 +38,8 @@
 #include <fcntl.h>
 #include "mali_exa.h"
 #include "mali_fbdev.h"
+#include <blt_api.h>
+#include <errno.h>
 
 static struct mali_info mi;
 
@@ -42,69 +54,209 @@ static struct mali_info mi;
 #define MALI_EXA_FUNC(s) exa->s = mali ## s
 #define IGNORE( a ) ( a = a );
 #define MALI_ALIGN( value, base ) (((value) + ((base) - 1)) & ~((base) - 1))
+static Bool maliPrepareAccess(PixmapPtr pPix, int index);
+static void maliFinishAccess(PixmapPtr pPix, int index);
 
 static int fd_fbdev = -1;
 
+static int maliGetColorFormat(int bitsPerPixel)
+{
+        switch(bitsPerPixel) {
+                case 15:
+                        return BLT_FMT_16_BIT_ARGB1555;
+                case 16:
+                        return BLT_FMT_16_BIT_RGB565;
+                case 24:
+                        return BLT_FMT_24_BIT_RGB888;
+                case 32:
+                        return BLT_FMT_32_BIT_ARGB8888;
+                default:
+                        xf86DrvMsg(mi.pScrn->scrnIndex, X_INFO, "Unknown bit depth, %d", bitsPerPixel);
+                        return 0;
+        }
+}
+
 static Bool maliPrepareSolid( PixmapPtr pPixmap, int alu, Pixel planemask, Pixel fg )
 {
+	int ret = 0;
+
 	TRACE_ENTER();
-	IGNORE( pPixmap );
 	IGNORE( alu );
 	IGNORE( planemask );
-	IGNORE( fg );
+
+	if (pPixmap->drawable.bitsPerPixel <= 8)
+		ret = FALSE;
+	else {
+	        mi.fillColor = fg;
+		ret = TRUE;
+	}
+
 	TRACE_EXIT();
 
- 	return FALSE;
+ 	return ret;
 }
 
 static void maliSolid( PixmapPtr pPixmap, int x1, int y1, int x2, int y2 )
 {
+	struct blt_req bltreq = {0};
+	int status = 0;
+	MaliPtr fPtr;
+	PrivPixmap *privPixmap = (PrivPixmap *)exaGetPixmapDriverPrivate(pPixmap);
+	fPtr = MALIPTR(xf86Screens[pPixmap->drawable.pScreen->myNum]);
+
 	TRACE_ENTER();
-	IGNORE( pPixmap );
-	IGNORE( x1 );
-	IGNORE( y1 );
-	IGNORE( x2 );
-	IGNORE( y2 );
+
+	bltreq.size = sizeof(struct blt_req);
+	bltreq.flags = BLT_FLAG_ASYNCH | BLT_FLAG_SOURCE_FILL_RAW;
+	bltreq.transform = BLT_TRANSFORM_NONE;
+	bltreq.src_color = mi.fillColor;
+	bltreq.dst_img.buf.type = BLT_PTR_HWMEM_BUF_NAME_OFFSET;
+	bltreq.dst_img.buf.hwmem_buf_name = privPixmap->mem_info->hwmem_global_name;
+	bltreq.dst_img.width = pPixmap->drawable.width;
+	bltreq.dst_img.height = pPixmap->drawable.height;
+	bltreq.dst_img.fmt = maliGetColorFormat(pPixmap->drawable.bitsPerPixel);
+	bltreq.dst_img.pitch = exaGetPixmapPitch(pPixmap);
+	bltreq.dst_rect.x = x1;
+	bltreq.dst_rect.y = y1 + fPtr->fb_lcd_var.yoffset;
+	bltreq.dst_rect.width = x2 - x1;
+	bltreq.dst_rect.height = y2 - y1;
+	bltreq.dst_clip_rect.x = x1;
+	bltreq.dst_clip_rect.y = y1 + fPtr->fb_lcd_var.yoffset;
+	bltreq.dst_clip_rect.width = x2 - x1;
+	bltreq.dst_clip_rect.height = y2 - y1;
+
+	do {
+		status = blt_request(mi.blt_handle, &bltreq);
+		if (status < 0)
+			xf86DrvMsg(mi.pScrn->scrnIndex, X_INFO, "maliSolid blt_request failed, errno %d\n", errno);
+	} while (status < 0 && errno == EAGAIN);
+
 	TRACE_EXIT();
 }
 
 static void maliDoneSolid( PixmapPtr pPixmap )
 {
 	TRACE_ENTER();
+
+	mi.fillColor = 0;	
+	(void)blt_synch(mi.blt_handle, 0);
+
 	IGNORE( pPixmap );
+
 	TRACE_EXIT();
 }
 
 static Bool maliPrepareCopy( PixmapPtr pSrcPixmap, PixmapPtr pDstPixmap, int xdir, int ydir, int alu, Pixel planemask )
 {
+	int ret = 0;
+	
 	TRACE_ENTER();
-	IGNORE( pSrcPixmap );
-	IGNORE( pDstPixmap );
+
+        if (pSrcPixmap->drawable.bitsPerPixel <= 8 || pDstPixmap->drawable.bitsPerPixel <= 8)
+                ret = FALSE;
+        else {
+                mi.pSourcePixmap = pSrcPixmap;
+                ret = TRUE;
+        }
+
 	IGNORE( xdir );
 	IGNORE( ydir );
 	IGNORE( alu );
 	IGNORE( planemask );
 	TRACE_EXIT();
 
-	return FALSE;
+	return ret;
 }
 
 static void maliCopy( PixmapPtr pDstPixmap, int srcX, int srcY, int dstX, int dstY, int width, int height )
 {
-	TRACE_ENTER();
-	IGNORE( pDstPixmap );
-	IGNORE( srcX );
-	IGNORE( srcY );
-	IGNORE( dstX );
-	IGNORE( dstY );
-	IGNORE( width );
-	IGNORE( height );
+        PrivPixmap *privPixmapSrc;
+        PrivPixmap *privPixmapDst;
+        MaliPtr fPtr;
+
+        TRACE_ENTER();
+
+        privPixmapSrc = (PrivPixmap *)exaGetPixmapDriverPrivate(mi.pSourcePixmap);
+        privPixmapDst = (PrivPixmap *)exaGetPixmapDriverPrivate(pDstPixmap);
+        fPtr = MALIPTR(xf86Screens[pDstPixmap->drawable.pScreen->myNum]);
+
+        if ((mi.pSourcePixmap == pDstPixmap) && 
+		!(((srcY + height < dstY) || (dstY + height < srcY)) &&
+		  ((srcX + width < dstX) || (dstX + width < srcX)))) {
+                /* SW blitting if areas are overlapping on the same surface */
+                RegionPtr pReg;
+
+                if (!mi.pGC) {
+                        mi.pGC = GetScratchGC(pDstPixmap->drawable.depth, pDstPixmap->drawable.pScreen);
+                        ValidateGC(&pDstPixmap->drawable, mi.pGC);
+                }
+
+                maliPrepareAccess(mi.pSourcePixmap, EXA_PREPARE_SRC);
+                maliPrepareAccess(pDstPixmap, EXA_PREPARE_DEST);
+                pReg = fbCopyArea(&mi.pSourcePixmap->drawable, &pDstPixmap->drawable,
+                                  mi.pGC, srcX, srcY, width, height, dstX, dstY);
+                if (pReg) {
+			REGION_DESTROY(pDstPixmap->drawable.pScreen, pReg);
+                }
+
+                maliFinishAccess(mi.pSourcePixmap, EXA_PREPARE_SRC);
+                maliFinishAccess(pDstPixmap, EXA_PREPARE_DEST);
+
+        } else {
+                /* HW blitting */
+                struct blt_req bltreq = {0};
+                int status = 0;
+
+                bltreq.size = sizeof(struct blt_req);
+                bltreq.flags = BLT_FLAG_ASYNCH;
+                bltreq.transform = BLT_TRANSFORM_NONE;
+                bltreq.src_img.fmt = maliGetColorFormat(mi.pSourcePixmap->drawable.bitsPerPixel);
+                bltreq.src_img.buf.type = BLT_PTR_HWMEM_BUF_NAME_OFFSET;
+                bltreq.src_img.buf.hwmem_buf_name = privPixmapSrc->mem_info->hwmem_global_name;
+                bltreq.src_img.width = mi.pSourcePixmap->drawable.width;
+                bltreq.src_img.height = mi.pSourcePixmap->drawable.height;
+                bltreq.src_img.pitch = exaGetPixmapPitch(mi.pSourcePixmap);
+                bltreq.dst_img.fmt = maliGetColorFormat(pDstPixmap->drawable.bitsPerPixel);
+                bltreq.dst_img.buf.type = BLT_PTR_HWMEM_BUF_NAME_OFFSET;
+                bltreq.dst_img.buf.hwmem_buf_name = privPixmapDst->mem_info->hwmem_global_name;
+                bltreq.dst_img.width = pDstPixmap->drawable.width;
+                bltreq.dst_img.height = pDstPixmap->drawable.height;
+                bltreq.dst_img.pitch = exaGetPixmapPitch(pDstPixmap);
+                bltreq.src_rect.x = srcX;
+                bltreq.src_rect.y = srcY;
+                bltreq.src_rect.width = width;
+                bltreq.src_rect.height = height;
+                bltreq.dst_rect.x = dstX;
+                bltreq.dst_rect.y = dstY + fPtr->fb_lcd_var.yoffset;
+                bltreq.dst_rect.width = width;
+                bltreq.dst_rect.height = height;
+                bltreq.dst_clip_rect.x = dstX;
+                bltreq.dst_clip_rect.y = dstY + fPtr->fb_lcd_var.yoffset;
+                bltreq.dst_clip_rect.width = width;
+                bltreq.dst_clip_rect.height = height;
+
+                do {
+                        status = blt_request(mi.blt_handle, &bltreq);
+                        if (status < 0)
+                                xf86DrvMsg(mi.pScrn->scrnIndex, X_INFO, "maliCopy blt_request failed, errno %d\n", errno);
+                } while (status < 0 && errno == EAGAIN);
+
+        }
+
+
 	TRACE_EXIT();
 }
 
 static void maliDoneCopy( PixmapPtr pDstPixmap )
 {
 	TRACE_ENTER();
+
+        if (mi.pGC) {
+                FreeScratchGC(mi.pGC);
+                mi.pGC = NULL;
+        }
+        (void)blt_synch(mi.blt_handle, 0);
+
 	IGNORE( pDstPixmap );
 	TRACE_EXIT();
 }
@@ -139,7 +291,6 @@ static void maliDestroyPixmap(ScreenPtr pScreen, void *driverPriv )
 	IGNORE( pScreen );
 	if ( NULL != privPixmap->mem_info )
 	{
-		//xf86DrvMsg(mi.pScrn->scrnIndex, X_INFO, "Release hwmem handle: 0x%x\n", privPixmap->mem_info->hwmem_handle );
 		if (privPixmap->addr != NULL)
 		{
 			munmap(privPixmap->addr, privPixmap->mem_info->usize);
@@ -172,7 +323,7 @@ static Bool maliModifyPixmapHeader(PixmapPtr pPixmap, int width, int height, int
 
 	if (pPixData == mi.fb_virt) 
 	{
-		// initialize it to -1 since this denotes an error
+		/* initialize it to -1 since this denotes an error */
 		unsigned int secure_id = -1;
 
 		privPixmap->isFrameBuffer = TRUE;
@@ -196,12 +347,11 @@ static Bool maliModifyPixmapHeader(PixmapPtr pPixmap, int width, int height, int
 		/* get the secure ID for the framebuffer */
 		secure_id = ioctl( fd_fbdev, MCDE_GET_BUFFER_NAME_IOC, NULL );
 
-		// a return of -1 for secure_id denotes an error.
 		if ( -1 == secure_id)
 		{
 			free( mem_info );
 			privPixmap->mem_info = NULL;
-			xf86DrvMsg( mi.pScrn->scrnIndex, X_ERROR, "[%s:%d] UMP failed to retrieve secure id\n", __FUNCTION__, __LINE__);
+			xf86DrvMsg( mi.pScrn->scrnIndex, X_ERROR, "[%s:%d] hwmem failed to retrieve secure id\n", __FUNCTION__, __LINE__);
 			TRACE_EXIT();
 			return FALSE;
 		}
@@ -214,7 +364,7 @@ static Bool maliModifyPixmapHeader(PixmapPtr pPixmap, int width, int height, int
 
 		if ( -1 == mem_info->hwmem_alloc )
 		{
-			xf86DrvMsg( mi.pScrn->scrnIndex, X_ERROR, "[%s:%d] UMP failed to create handle from secure id\n", __FUNCTION__, __LINE__);
+			xf86DrvMsg( mi.pScrn->scrnIndex, X_ERROR, "[%s:%d] hwmem failed to create handle from secure id\n", __FUNCTION__, __LINE__);
 			free( mem_info );
 			privPixmap->mem_info = NULL;
 			TRACE_EXIT();
@@ -247,8 +397,8 @@ static Bool maliModifyPixmapHeader(PixmapPtr pPixmap, int width, int height, int
 		return FALSE;
 	}
 
-	//pPixmap->devKind = ( (pPixmap->drawable.width*pPixmap->drawable.bitsPerPixel) + 7 ) / 8;
-	//pPixmap->devKind = MALI_ALIGN( pPixmap->devKind, 8 );
+	pPixmap->devKind = ( (pPixmap->drawable.width*pPixmap->drawable.bitsPerPixel) + 7 ) / 8;
+	pPixmap->devKind = MALI_ALIGN( pPixmap->devKind, 8 );
 
 	size = exaGetPixmapPitch(pPixmap) * pPixmap->drawable.height;
 
@@ -292,7 +442,7 @@ static Bool maliModifyPixmapHeader(PixmapPtr pPixmap, int width, int height, int
 		}
 	}
 
-	{ // Create and fill in values in struct for passing with ioctl
+	{
 		struct hwmem_alloc_request args;
 		args.size = size;
 		args.flags = HWMEM_ALLOC_CACHED;
@@ -523,7 +673,7 @@ Bool maliSetupExa( ScreenPtr pScreen, ExaDriverPtr exa, int xres, int yres, unsi
 	exa->flags = EXA_OFFSCREEN_PIXMAPS | EXA_HANDLES_PIXMAPS | EXA_SUPPORTS_PREPARE_AUX;
 	exa->offScreenBase = (fPtr->fb_lcd_fix.line_length*fPtr->fb_lcd_var.yres);
 	exa->memorySize = fPtr->fb_lcd_fix.smem_len;
-	//exa->pixmapOffsetAlign = 4096;
+	exa->pixmapOffsetAlign = 4096;
 	exa->pixmapPitchAlign = 8;
 
 	fd_fbdev = fPtr->fb_lcd_fd;
@@ -552,6 +702,10 @@ Bool maliSetupExa( ScreenPtr pScreen, ExaDriverPtr exa, int xres, int yres, unsi
 
 	MALI_EXA_FUNC(PrepareAccess);
 	MALI_EXA_FUNC(FinishAccess);
+
+	mi.blt_handle = blt_open();
+	if (mi.blt_handle < 0)
+		return FALSE;
 
 	xf86DrvMsg(mi.pScrn->scrnIndex, X_INFO, "Mali EXA driver is loaded successfully\n");
 	TRACE_EXIT();
