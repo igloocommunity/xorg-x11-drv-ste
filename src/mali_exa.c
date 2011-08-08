@@ -445,7 +445,7 @@ static Bool maliModifyPixmapHeader(PixmapPtr pPixmap, int width, int height, int
 	{
 		struct hwmem_alloc_request args;
 		args.size = size;
-		args.flags = HWMEM_ALLOC_CACHED;
+		args.flags = HWMEM_ALLOC_HINT_CACHED;
 		args.default_access = HWMEM_ACCESS_READ | HWMEM_ACCESS_WRITE | HWMEM_ACCESS_IMPORT;
 		args.mem_type = HWMEM_MEM_CONTIGUOUS_SYS;
 		mem_info->hwmem_alloc = ioctl(	MALIPTR(xf86Screens[pPixmap->drawable.pScreen->myNum])->hwmem_fd,
@@ -528,7 +528,6 @@ static Bool maliPrepareAccess(PixmapPtr pPix, int index)
 	{
 		struct hwmem_set_domain_request args;
 		args.id = mem_info->hwmem_alloc;
-		args.domain = HWMEM_DOMAIN_CPU;
 		args.access = HWMEM_ACCESS_READ | HWMEM_ACCESS_WRITE | HWMEM_ACCESS_IMPORT;
 
 		/* using memset avoids API compatibility problems with the skip/offset field. */
@@ -538,7 +537,7 @@ static Bool maliPrepareAccess(PixmapPtr pPix, int index)
 		args.region.end = mem_info->usize;
 		args.region.size = mem_info->usize;
 		ioctl(	MALIPTR(xf86Screens[pPix->drawable.pScreen->myNum])->hwmem_fd,
-			HWMEM_SET_DOMAIN_IOC,
+			HWMEM_SET_CPU_DOMAIN_IOC,
 			&args);
 
 		if (!privPixmap->addr)
