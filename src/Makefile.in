@@ -89,7 +89,7 @@ am__installdirs = "$(DESTDIR)$(mali_drv_ladir)"
 LTLIBRARIES = $(mali_drv_la_LTLIBRARIES)
 mali_drv_la_LIBADD =
 am_mali_drv_la_OBJECTS = mali_fbdev.lo mali_exa.lo mali_dri.lo \
-	mali_lcd.lo
+	mali_lcd.lo u8500_video.lo
 mali_drv_la_OBJECTS = $(am_mali_drv_la_OBJECTS)
 AM_V_lt = $(am__v_lt_$(V))
 am__v_lt_ = $(am__v_lt_$(AM_DEFAULT_VERBOSITY))
@@ -278,10 +278,11 @@ mali_drv_la_LTLIBRARIES = mali_drv.la
 mali_drv_la_LDFLAGS = -module -avoid-version
 mali_drv_ladir = @moduledir@/drivers
 mali_drv_la_SOURCES = \
-         mali_fbdev.c \
-         mali_exa.c \
-         mali_dri.c \
-			mali_lcd.c
+	mali_fbdev.c \
+	mali_exa.c \
+	mali_dri.c \
+	mali_lcd.c \
+	u8500_video.c
 
 all: all-am
 
@@ -361,6 +362,7 @@ distclean-compile:
 @AMDEP_TRUE@@am__include@ @am__quote@./$(DEPDIR)/mali_exa.Plo@am__quote@
 @AMDEP_TRUE@@am__include@ @am__quote@./$(DEPDIR)/mali_fbdev.Plo@am__quote@
 @AMDEP_TRUE@@am__include@ @am__quote@./$(DEPDIR)/mali_lcd.Plo@am__quote@
+@AMDEP_TRUE@@am__include@ @am__quote@./$(DEPDIR)/u8500_video.Plo@am__quote@
 
 .c.o:
 @am__fastdepCC_TRUE@	$(AM_V_CC)$(COMPILE) -MT $@ -MD -MP -MF $(DEPDIR)/$*.Tpo -c -o $@ $<

@@ -1166,10 +1166,27 @@ static Bool MaliScreenInit(int scrnIndex, ScreenPtr pScreen, int argc, char **ar
 
 	{
 		XF86VideoAdaptorPtr *ptr;
+                XF86VideoAdaptorPtr adaptor;
+                int i = 0;
 
-		int n = xf86XVListGenericAdaptors(pScrn,&ptr);
-		if (n) xf86XVScreenInit(pScreen,ptr,n);
-	}
+                ptr = realloc(ptr, (i + 1) * sizeof(XF86VideoAdaptorPtr));
+                if (!ptr)
+                        return FALSE;
+
+                /* b2r2 overlay video adaptor */
+                if ((adaptor = U8500overlaySetupImageVideo(pScreen))) {
+                        ptr[i] = adaptor;
+                        i++;
+                }
+
+                if (!xf86XVScreenInit(pScreen, ptr, i)) {
+                        xf86DrvMsg(pScrn->scrnIndex, X_ERROR, "XVScreenInit failed\n");
+                        return FALSE;
+                }
+
+                //int n = xf86XVListGenericAdaptors(pScrn,&ptr);
+                //if (n) xf86XVScreenInit(pScreen,ptr,n);
+        }
 
 	return TRUE;
 }
@@ -1182,6 +1199,9 @@ static Bool MaliCloseScreen(int scrnIndex, ScreenPtr pScreen)
 	
 	MaliHWRestore(pScrn);
 	MaliHWUnmapVidmem(pScrn);
+
+	U8500overlayFreeAdaptor(fPtr, fPtr->overlay_adaptor);
+
 	pScrn->vtSema = FALSE;
 
 	pScreen->CreateScreenResources = fPtr->CreateScreenResources;

@@ -30,7 +30,8 @@ mali_drv_ladir = @moduledir@/drivers
 LIBS = -lblt_hw
 
 mali_drv_la_SOURCES = \
-         mali_fbdev.c \
-         mali_exa.c \
-         mali_dri.c \
-			mali_lcd.c
+	mali_fbdev.c \
+	mali_exa.c \
+	mali_dri.c \
+	mali_lcd.c \
+	u8500_video.c

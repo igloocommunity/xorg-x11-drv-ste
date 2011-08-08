@@ -28,6 +28,7 @@
 #include <linux/hwmem.h>
 #include <sys/mman.h>
 #include "exa.h"
+#include <xf86xv.h>
 #include <video/mcde_fb.h>
 
 #define DPMSModeOn	0
@@ -63,6 +64,9 @@ typedef struct {
 	Bool use_pageflipping;
 	Bool use_pageflipping_vsync;
 	int  hwmem_fd;
+        /* Video Adaptors */
+        XF86VideoAdaptorPtr overlay_adaptor;
+        XF86VideoAdaptorPtr textured_adaptor;
 } MaliRec, *MaliPtr;
 
 typedef struct {
@@ -91,11 +95,64 @@ typedef struct {
 #define MALIDBGMSG(type, format, args...)
 #endif
 
-
 Bool FBDEV_lcd_init(ScrnInfoPtr pScrn);
 
 Bool MaliDRI2ScreenInit( ScreenPtr pScreen );
 void MaliDRI2CloseScreen( ScreenPtr pScreen );
+
+#define VIDEO_IMAGE_MAX_WIDTH 1920
+#define VIDEO_IMAGE_MAX_HEIGHT 1280
+
+#define VIDEO_RESIZE_MAX_WIDTH 1920
+#define VIDEO_RESIZE_MAX_HEIGHT 1280
+
+#define FOURCC_YUMB 0x424D5559
+#define XVIMAGE_YUMB \
+   { \
+        FOURCC_YUMB, \
+        XvYUV, \
+        LSBFirst, \
+        {'Y','U','M','B', \
+          0x00,0x00,0x00,0x10,0x80,0x00,0x00,0xAA,0x00,0x38,0x9B,0x71}, \
+        12, \
+        XvPacked, \
+        3, \
+        0, 0, 0, 0, \
+        8, 8, 8, \
+        1, 2, 2, \
+        1, 2, 2, \
+        {'Y','V','U', \
+          0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0}, \
+        XvTopToBottom \
+   }
+
+
+#define FOURCC_STE0 0x30455453
+#define XVIMAGE_STE0 \
+   { \
+        FOURCC_STE0, \
+        XvYUV, \
+        LSBFirst, \
+        {'S','T','E','0', \
+          0x00,0x00,0x00,0x10,0x80,0x00,0x00,0xAA,0x00,0x38,0x9B,0x71}, \
+        16, \
+        XvPacked, \
+        1, \
+        0, 0, 0, 0, \
+        8, 8, 8, \
+        1, 2, 2, \
+        1, 1, 1, \
+        {'S','T','E','0', \
+          0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0}, \
+        XvTopToBottom \
+   }
+
+typedef struct st_yuvmb_frame_desc {
+    unsigned int poolid;
+    unsigned int logicaladdress;
+    unsigned int physicaladdress;
+    unsigned int size;
+} st_yuvmb_frame_desc;
 
 #endif /* _MALI_FBDEV_DRIVER_H_ */
 
