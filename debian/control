@@ -1,0 +1,20 @@
+Source: xf86-video-mali
+Section: x11
+Priority: optional
+Maintainer: packages@igloocommunity.org
+Build-Depends: gawk, debhelper (>= 5.0.0), quilt, pkg-config, xserver-xorg-dev (>= 2:1.10), x11proto-core-dev, x11proto-fonts-dev, x11proto-randr-dev, x11proto-render-dev, x11proto-video-dev, x11proto-dri2-dev, dpkg-dev (>= 1.14.17), xutils-dev (>= 1:7.4+4), b2r2lib-dev, automake, libdrm-dev
+Standards-Version: 3.8.0
+
+Package: xf86-video-mali
+Architecture: armel
+Depends: ${shlibs:Depends}, ${misc:Depends}, ${xviddriver:Depends}
+Provides: ${xviddriver:Provides}
+Description: X.Org X server -- STE chipsets display driver
+ This package provides the driver for the STE graphic devices
+
+Package: xf86-video-mali-dbg
+Architecture: armel
+Depends: ${shlibs:Depends}, ${misc:Depends}, ${xviddriver:Depends}, xf86-video-mali (= ${binary:Version})
+Provides: ${xviddriver:Provides}
+Description: X.Org X server -- STE chipsets display driver
+ This package provides the driver for the STE graphic devices

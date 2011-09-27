@@ -1,0 +1,11 @@
+xf86-video-mali (1.0-2) natty; urgency=low
+
+  * Corrected y-offset for b2r2 operations.
+
+ -- John Fredriksson <john.xj.fredriksson@stericsson.com>  Fri, 14 Oct 2011 19:53:55 +0200
+
+xf86-video-mali (1.0-1) unstable; urgency=low
+
+  * Initial release
+
+ -- John Fredriksson <john.xj.fredriksson@stericsson.com>  Mon, 21 Mar 2011 17:00:03 +0100
