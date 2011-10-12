@@ -117,11 +117,11 @@ static void maliSolid( PixmapPtr pPixmap, int x1, int y1, int x2, int y2 )
 	bltreq.dst_img.fmt = maliGetColorFormat(pPixmap->drawable.bitsPerPixel);
 	bltreq.dst_img.pitch = exaGetPixmapPitch(pPixmap);
 	bltreq.dst_rect.x = x1;
-	bltreq.dst_rect.y = y1 + fPtr->fb_lcd_var.yoffset;
+	bltreq.dst_rect.y = y1;
 	bltreq.dst_rect.width = x2 - x1;
 	bltreq.dst_rect.height = y2 - y1;
 	bltreq.dst_clip_rect.x = x1;
-	bltreq.dst_clip_rect.y = y1 + fPtr->fb_lcd_var.yoffset;
+	bltreq.dst_clip_rect.y = y1;
 	bltreq.dst_clip_rect.width = x2 - x1;
 	bltreq.dst_clip_rect.height = y2 - y1;
 
@@ -227,11 +227,11 @@ static void maliCopy( PixmapPtr pDstPixmap, int srcX, int srcY, int dstX, int ds
                 bltreq.src_rect.width = width;
                 bltreq.src_rect.height = height;
                 bltreq.dst_rect.x = dstX;
-                bltreq.dst_rect.y = dstY + fPtr->fb_lcd_var.yoffset;
+                bltreq.dst_rect.y = dstY;
                 bltreq.dst_rect.width = width;
                 bltreq.dst_rect.height = height;
                 bltreq.dst_clip_rect.x = dstX;
-                bltreq.dst_clip_rect.y = dstY + fPtr->fb_lcd_var.yoffset;
+                bltreq.dst_clip_rect.y = dstY;
                 bltreq.dst_clip_rect.width = width;
                 bltreq.dst_clip_rect.height = height;
 
