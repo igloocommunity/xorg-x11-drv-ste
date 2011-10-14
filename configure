@@ -12175,95 +12175,6 @@ DRIVER_NAME=mali
 
 
 
-
-
-if test x$APP_MAN_SUFFIX = x    ; then
-    APP_MAN_SUFFIX=1
-fi
-if test x$APP_MAN_DIR = x    ; then
-    APP_MAN_DIR='$(mandir)/man$(APP_MAN_SUFFIX)'
-fi
-
-if test x$LIB_MAN_SUFFIX = x    ; then
-    LIB_MAN_SUFFIX=3
-fi
-if test x$LIB_MAN_DIR = x    ; then
-    LIB_MAN_DIR='$(mandir)/man$(LIB_MAN_SUFFIX)'
-fi
-
-if test x$FILE_MAN_SUFFIX = x    ; then
-    case $host_os in
-	solaris*)	FILE_MAN_SUFFIX=4  ;;
-	*)		FILE_MAN_SUFFIX=5  ;;
-    esac
-fi
-if test x$FILE_MAN_DIR = x    ; then
-    FILE_MAN_DIR='$(mandir)/man$(FILE_MAN_SUFFIX)'
-fi
-
-if test x$MISC_MAN_SUFFIX = x    ; then
-    case $host_os in
-	solaris*)	MISC_MAN_SUFFIX=5  ;;
-	*)		MISC_MAN_SUFFIX=7  ;;
-    esac
-fi
-if test x$MISC_MAN_DIR = x    ; then
-    MISC_MAN_DIR='$(mandir)/man$(MISC_MAN_SUFFIX)'
-fi
-
-if test x$DRIVER_MAN_SUFFIX = x    ; then
-    case $host_os in
-	solaris*)	DRIVER_MAN_SUFFIX=7  ;;
-	*)		DRIVER_MAN_SUFFIX=4  ;;
-    esac
-fi
-if test x$DRIVER_MAN_DIR = x    ; then
-    DRIVER_MAN_DIR='$(mandir)/man$(DRIVER_MAN_SUFFIX)'
-fi
-
-if test x$ADMIN_MAN_SUFFIX = x    ; then
-    case $host_os in
-	solaris*)	ADMIN_MAN_SUFFIX=1m ;;
-	*)		ADMIN_MAN_SUFFIX=8  ;;
-    esac
-fi
-if test x$ADMIN_MAN_DIR = x    ; then
-    ADMIN_MAN_DIR='$(mandir)/man$(ADMIN_MAN_SUFFIX)'
-fi
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-XORG_MAN_PAGE="X Version 11"
-
-MAN_SUBSTS="\
-	-e 's|__vendorversion__|\"\$(PACKAGE_STRING)\" \"\$(XORG_MAN_PAGE)\"|' \
-	-e 's|__xorgversion__|\"\$(PACKAGE_STRING)\" \"\$(XORG_MAN_PAGE)\"|' \
-	-e 's|__xservername__|Xorg|g' \
-	-e 's|__xconfigfile__|xorg.conf|g' \
-	-e 's|__projectroot__|\$(prefix)|g' \
-	-e 's|__appmansuffix__|\$(APP_MAN_SUFFIX)|g' \
-	-e 's|__drivermansuffix__|\$(DRIVER_MAN_SUFFIX)|g' \
-	-e 's|__adminmansuffix__|\$(ADMIN_MAN_SUFFIX)|g' \
-	-e 's|__libmansuffix__|\$(LIB_MAN_SUFFIX)|g' \
-	-e 's|__miscmansuffix__|\$(MISC_MAN_SUFFIX)|g' \
-	-e 's|__filemansuffix__|\$(FILE_MAN_SUFFIX)|g'"
-
-
-
-
-
 cat >>confdefs.h <<_ACEOF
 #define PACKAGE_VERSION_MAJOR `echo $PACKAGE_VERSION | cut -d . -f 1`
 _ACEOF
@@ -12288,7 +12199,7 @@ _ACEOF
 
 
 
-ac_config_files="$ac_config_files Makefile src/Makefile man/Makefile"
+ac_config_files="$ac_config_files Makefile src/Makefile"
 
 cat >confcache <<\_ACEOF
 # This file is a shell script that caches the results of configure
@@ -13279,7 +13190,6 @@ do
     "libtool") CONFIG_COMMANDS="$CONFIG_COMMANDS libtool" ;;
     "Makefile") CONFIG_FILES="$CONFIG_FILES Makefile" ;;
     "src/Makefile") CONFIG_FILES="$CONFIG_FILES src/Makefile" ;;
-    "man/Makefile") CONFIG_FILES="$CONFIG_FILES man/Makefile" ;;
 
   *) as_fn_error $? "invalid argument: \`$ac_config_target'" "$LINENO" 5 ;;
   esac
