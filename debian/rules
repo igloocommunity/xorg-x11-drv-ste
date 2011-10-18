@@ -61,6 +61,10 @@ install: build
 	dh_installdirs
 
 	$(MAKE) DESTDIR=$(CURDIR)/debian/xf86-video-mali install
+	mkdir -p $(CURDIR)/debian/xf86-video-mali/usr/share/X11/xorg.conf.d
+	cp $(CURDIR)/99-ste_mali.conf  $(CURDIR)/debian/xf86-video-mali/usr/share/X11/xorg.conf.d/
+	mkdir -p $(CURDIR)/debian/xf86-video-mali/etc/udev/rules.d
+	cp $(CURDIR)/10-ste_mali.rules $(CURDIR)/debian/xf86-video-mali/etc/udev/rules.d/
 
 
 # Build architecture-independent files here.
