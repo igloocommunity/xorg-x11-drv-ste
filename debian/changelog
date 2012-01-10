@@ -1,3 +1,10 @@
+xf86-video-mali (1.0.1-3) oneiric; urgency=low
+
+  * Rebased to the correct branch, drop changes made to the old branch
+  * Unfortunately the version is now silly...
+
+ -- Kalle Vahlman <kalle.vahlman@movial.com>  Tue, 10 Jan 2012 17:40:45 +0000
+
 xf86-video-mali (1.0-2) natty; urgency=low
 
   * Corrected y-offset for b2r2 operations.
