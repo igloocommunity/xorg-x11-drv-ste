@@ -1,3 +1,9 @@
+xf86-video-mali (1.0.1-5) oneiric; urgency=low
+
+  * Bump build-depend on b2r2lib for API changes
+
+ -- Kalle Vahlman <kalle.vahlman@movial.com>  Fri, 30 Mar 2012 17:26:14 +0000
+
 xf86-video-mali (1.0.1-4) oneiric; urgency=low
 
   * Build-depend on a fixed version of b2r2lib
